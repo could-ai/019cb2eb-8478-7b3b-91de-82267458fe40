@@ -1,123 +1,255 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const ChessApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class ChessApp extends StatelessWidget {
+  const ChessApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Chess Game',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.brown),
+        useMaterial3: true,
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const MyHomePage(title: 'Flutter Demo Home Page'),
+        '/': (context) => const ChessScreen(),
       },
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+enum PieceType { king, queen, rook, bishop, knight, pawn }
+enum PieceColor { white, black }
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+class ChessPiece {
+  PieceType type;
+  PieceColor color;
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+  ChessPiece(this.type, this.color);
 
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  String get symbol {
+    switch (type) {
+      case PieceType.king:
+        return color == PieceColor.white ? '♔' : '♚';
+      case PieceType.queen:
+        return color == PieceColor.white ? '♕' : '♛';
+      case PieceType.rook:
+        return color == PieceColor.white ? '♖' : '♜';
+      case PieceType.bishop:
+        return color == PieceColor.white ? '♗' : '♝';
+      case PieceType.knight:
+        return color == PieceColor.white ? '♘' : '♞';
+      case PieceType.pawn:
+        return color == PieceColor.white ? '♙' : '♟';
+    }
+  }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class ChessScreen extends StatefulWidget {
+  const ChessScreen({super.key});
 
-  void _incrementCounter() {
+  @override
+  State<ChessScreen> createState() => _ChessScreenState();
+}
+
+class _ChessScreenState extends State<ChessScreen> {
+  late List<List<ChessPiece?>> board;
+  PieceColor currentTurn = PieceColor.white;
+  ChessPiece? selectedPiece;
+  int? selectedRow;
+  int? selectedCol;
+
+  @override
+  void initState() {
+    super.initState();
+    initializeBoard();
+  }
+
+  void initializeBoard() {
+    board = List.generate(8, (row) => List.generate(8, (col) {
+      if (row == 0) {
+        switch (col) {
+          case 0:
+          case 7:
+            return ChessPiece(PieceType.rook, PieceColor.black);
+          case 1:
+          case 6:
+            return ChessPiece(PieceType.knight, PieceColor.black);
+          case 2:
+          case 5:
+            return ChessPiece(PieceType.bishop, PieceColor.black);
+          case 3:
+            return ChessPiece(PieceType.queen, PieceColor.black);
+          case 4:
+            return ChessPiece(PieceType.king, PieceColor.black);
+        }
+      } else if (row == 1) {
+        return ChessPiece(PieceType.pawn, PieceColor.black);
+      } else if (row == 6) {
+        return ChessPiece(PieceType.pawn, PieceColor.white);
+      } else if (row == 7) {
+        switch (col) {
+          case 0:
+          case 7:
+            return ChessPiece(PieceType.rook, PieceColor.white);
+          case 1:
+          case 6:
+            return ChessPiece(PieceType.knight, PieceColor.white);
+          case 2:
+          case 5:
+            return ChessPiece(PieceType.bishop, PieceColor.white);
+          case 3:
+            return ChessPiece(PieceType.queen, PieceColor.white);
+          case 4:
+            return ChessPiece(PieceType.king, PieceColor.white);
+        }
+      }
+      return null;
+    }));
+  }
+
+  bool isValidMove(int fromRow, int fromCol, int toRow, int toCol) {
+    var piece = board[fromRow][fromCol];
+    if (piece == null) return false;
+
+    int rowDiff = (toRow - fromRow).abs();
+    int colDiff = (toCol - fromCol).abs();
+
+    switch (piece.type) {
+      case PieceType.pawn:
+        int direction = piece.color == PieceColor.white ? -1 : 1;
+        if (fromCol == toCol && board[toRow][toCol] == null) {
+          if (rowDiff == 1 && toRow == fromRow + direction) return true;
+          if (rowDiff == 2 &&
+              ((piece.color == PieceColor.white && fromRow == 6) ||
+               (piece.color == PieceColor.black && fromRow == 1)) &&
+              board[fromRow + direction][fromCol] == null) return true;
+        } else if (colDiff == 1 && rowDiff == 1 && toRow == fromRow + direction) {
+          return board[toRow][toCol] != null && board[toRow][toCol]!.color != piece.color;
+        }
+        break;
+      case PieceType.rook:
+        if ((rowDiff == 0 || colDiff == 0) && isPathClear(fromRow, fromCol, toRow, toCol)) return true;
+        break;
+      case PieceType.bishop:
+        if (rowDiff == colDiff && isPathClear(fromRow, fromCol, toRow, toCol)) return true;
+        break;
+      case PieceType.queen:
+        if ((rowDiff == colDiff || rowDiff == 0 || colDiff == 0) && isPathClear(fromRow, fromCol, toRow, toCol)) return true;
+        break;
+      case PieceType.knight:
+        if ((rowDiff == 2 && colDiff == 1) || (rowDiff == 1 && colDiff == 2)) return true;
+        break;
+      case PieceType.king:
+        if (rowDiff <= 1 && colDiff <= 1) return true;
+        break;
+    }
+    return false;
+  }
+
+  bool isPathClear(int fromRow, int fromCol, int toRow, int toCol) {
+    int rowStep = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
+    int colStep = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
+    int row = fromRow + rowStep;
+    int col = fromCol + colStep;
+    while (row != toRow || col != toCol) {
+      if (board[row][col] != null) return false;
+      row += rowStep;
+      col += colStep;
+    }
+    return true;
+  }
+
+  void onSquareTap(int row, int col) {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      if (selectedPiece == null) {
+        if (board[row][col] != null && board[row][col]!.color == currentTurn) {
+          selectedPiece = board[row][col];
+          selectedRow = row;
+          selectedCol = col;
+        }
+      } else {
+        if (isValidMove(selectedRow!, selectedCol!, row, col)) {
+          board[row][col] = selectedPiece;
+          board[selectedRow!][selectedCol!] = null;
+          currentTurn = currentTurn == PieceColor.white ? PieceColor.black : PieceColor.white;
+        }
+        selectedPiece = null;
+        selectedRow = null;
+        selectedCol = null;
+      }
+    });
+  }
+
+  void resetGame() {
+    setState(() {
+      initializeBoard();
+      currentTurn = PieceColor.white;
+      selectedPiece = null;
+      selectedRow = null;
+      selectedCol = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
+        title: const Text('Chess Game'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
-          ],
-        ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              '${currentTurn == PieceColor.white ? 'White' : 'Black'}'s turn',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+          ),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 8,
+              ),
+              itemCount: 64,
+              itemBuilder: (context, index) {
+                int row = index ~/ 8;
+                int col = index % 8;
+                bool isLight = (row + col) % 2 == 0;
+                bool isSelected = selectedRow == row && selectedCol == col;
+                return GestureDetector(
+                  onTap: () => onSquareTap(row, col),
+                  child: Container(
+                    color: isSelected
+                        ? Colors.yellow
+                        : isLight
+                            ? Colors.white
+                            : Colors.brown,
+                    child: Center(
+                      child: Text(
+                        board[row][col]?.symbol ?? '',
+                        style: const TextStyle(fontSize: 30),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        onPressed: resetGame,
+        tooltip: 'Reset Game',
+        child: const Icon(Icons.refresh),
+      ),
     );
   }
 }
